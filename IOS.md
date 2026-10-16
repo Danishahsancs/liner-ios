@@ -49,6 +49,38 @@ Files app in AltStore. SideStore can refresh the app on-device without a PC.
 | WebGL background (Kawarp) | Plain WebGL 1 with `highp` shaders, which iOS supports. If context creation fails or the context is lost (e.g. backgrounding), the canvas hides, the CSS blur stays and the engine rebuilds on restore. |
 | Deep links | `liner://…` registered via `CFBundleURLTypes`, handled by the existing `DeeplinkHandler`. |
 | Fallback relay | ATS exception for plain-http `edge.tryliner.fun` only (mirrors Android's network security config). |
+| CarPlay | See below. |
+
+## CarPlay
+
+There are two levels of CarPlay support.
+
+**1. Now Playing (works with any install, including a free Apple ID).** CarPlay's own *Now Playing* screen shows
+whatever Liner is playing (title, artist, artwork, progress) with play/pause, next/previous and scrubbing. This
+comes from the same Now Playing info as the lock screen. Start music on the phone, then control it from the car.
+
+**2. The full Liner app on the car screen (needs Apple's CarPlay entitlement).** A Liner icon appears in CarPlay
+with three tabs:
+
+- **Recent**: recently played tracks.
+- **Liked**: up to 200 liked songs.
+- **Playlists**: tap a playlist to see its tracks.
+
+Tapping a track plays it with the rest of that list as the queue, then opens CarPlay's Now Playing screen. The
+lists refresh when your library or account changes.
+
+- How it's built: native templates in `ios/App/App/CarPlay.swift`, fed by the web app through a small in-app plugin
+  (`src/features/carplay`).
+- Apps run inside the web view, so **Liner has to be running on the phone**. If CarPlay starts Liner on its own, the
+  car shows "Open Liner on your iPhone" until you open it.
+- The app declares `com.apple.developer.carplay-audio` in `ios/App/App/App.entitlements`, but **iOS only honours it if
+  the signing profile includes it**.
+  - Apple grants that entitlement on request, through the CarPlay form on developer.apple.com, and only to paid
+    developer accounts.
+  - A free Apple ID via Sideloadly/AltStore can't include it. The app installs and plays fine, but the Liner icon
+    won't appear in CarPlay. Level 1 still works.
+  - With an approved paid account: open the project in Xcode on a Mac, pick your team and run on the phone. Or
+    create an App ID with the CarPlay capability and a matching provisioning profile, then sign the IPA with it.
 
 ## What doesn't work (or is untested) on iOS
 
@@ -70,6 +102,8 @@ Files app in AltStore. SideStore can refresh the app on-device without a PC.
 - That the Xcode build itself succeeds. CI is the first real compile, so check the Actions log.
 - Background playback and lock-screen controls in practice, including whether WebKit's own Now Playing
   integration conflicts with the plugin.
+- Anything on a real CarPlay screen. The CarPlay templates compile in CI but have never run; the first real test
+  is Xcode's CarPlay simulator, or a car with an entitlement-signed build.
 - Whether the Liner server honours `preferredCodec: "aac"`. If it still returns WebM/Opus, playback depends on
   the iOS version.
 - Direct CDN streaming without CORS, and seeking through the proxy (Range requests are forwarded, but each range is buffered whole).

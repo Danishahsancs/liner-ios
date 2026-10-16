@@ -7,6 +7,7 @@ import { initTelemetry } from "@/shared/telemetry";
 import { initBackgroundStorageAnalytics } from "@/shared/utils/cacheManager";
 import { initApiEndpointProbe } from "@/shared/api";
 import { initClientVisitorSession } from "@/shared/api/visitorSession";
+import { isIOS } from "@/shared/platform";
 
 // Initialize global uncaught error, telemetry listeners, background storage tracker, edge health probe, and visitor session
 initGlobalErrorHandlers();
@@ -14,6 +15,11 @@ initTelemetry();
 initBackgroundStorageAnalytics();
 initApiEndpointProbe();
 initClientVisitorSession();
+
+// ios: CarPlay lists + playback (lazy so other platforms never load it)
+if (isIOS()) {
+  void import("@/features/carplay").then((m) => m.initCarPlay());
+}
 
 const rootElement = document.getElementById("root");
 
