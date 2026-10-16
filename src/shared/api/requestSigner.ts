@@ -87,6 +87,8 @@ export async function signApiRequest(
   return {};
 }
 
+let warnedNoWasm = false;
+
 // capacitor has no main process; run the same wasm signer in the webview
 async function signInWebView(
   method: string,
@@ -96,7 +98,14 @@ async function signInWebView(
 ): Promise<SignedHeaders> {
   try {
     const signer = await import("@/shared/platform/wasmSigner");
-    if (!signer.isWasmSignerSupported()) return {};
+    if (!signer.isWasmSignerSupported()) {
+      // e.g. ios lockdown mode, which turns WebAssembly off in every webview
+      if (!warnedNoWasm) {
+        warnedNoWasm = true;
+        console.warn("[Signer] WebAssembly unavailable; requests go out unsigned.");
+      }
+      return {};
+    }
     const res = await signer.signRequest({
       method: method.toUpperCase().trim(),
       path: path.split("?")[0].trim(),

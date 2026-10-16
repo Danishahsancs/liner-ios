@@ -1,0 +1,82 @@
+name: iOS Unsigned IPA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-ipa:
+    name: Build unsigned IPA
+    # macos-26 ships Xcode 26.x, which Capacitor 8 requires
+    runs-on: macos-26
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run unit tests
+        run: pnpm test
+
+      - name: Build web bundle and sync into iOS project
+        run: pnpm run ios:sync
+        env:
+          VITE_API_URL: https://api.tryliner.fun
+          VITE_COVERS_PROXY_URL: https://covers.tryliner.fun
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      # device (arm64) build with signing disabled; sideloading tools re-sign it
+      - name: Build app (unsigned, iphoneos)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath ios/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package IPA
+        run: |
+          APP=ios/DerivedData/Build/Products/Release-iphoneos/App.app
+          test -d "$APP"
+          VERSION=$(node -p "require('./package.json').version")
+          mkdir -p dist-ipa/Payload
+          cp -R "$APP" dist-ipa/Payload/
+          (cd dist-ipa && zip -qry "Liner-${VERSION}-unsigned.ipa" Payload)
+          ls -lh dist-ipa/*.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: liner-ios-unsigned-ipa
+          path: dist-ipa/*.ipa
+          if-no-files-found: error

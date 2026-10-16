@@ -1,9 +1,12 @@
-// android media notification + lock screen controls.
+// android media notification / ios now playing + lock screen controls.
 // a webview never turns navigator.mediaSession into a system notification, so
 // on native we mirror the player store into @capgo/capacitor-media-session.
-// while something is playing or paused that plugin also keeps a `mediaPlayback`
-// foreground service alive, which is what lets audio continue with the app in
-// the background or the screen off.
+// android: while something is playing or paused that plugin also keeps a
+// `mediaPlayback` foreground service alive, which is what lets audio continue
+// with the app in the background or the screen off.
+// ios: the plugin fills MPNowPlayingInfoCenter + MPRemoteCommandCenter;
+// background audio itself comes from UIBackgroundModes=audio and the
+// .playback audio session set in AppDelegate.swift.
 import { MediaSession, type MediaSessionPlaybackState } from "@capgo/capacitor-media-session";
 import type { Track } from "@/shared/types";
 import { usePlayerStore, type PlayerStatus } from "../store/playerStore";

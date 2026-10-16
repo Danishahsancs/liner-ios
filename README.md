@@ -4,6 +4,8 @@
 
 **Modern desktop music streaming player with syllable-synced lyrics and reactive dynamic visuals.**
 
+> **This repo is the iOS port.** CI builds an unsigned `.ipa` for sideloading — see [IOS.md](./IOS.md).
+
 [![Electron](https://img.shields.io/badge/Electron-44.0-47848F?style=flat-square&logo=electron&logoColor=black&labelColor=white)](https://electronjs.org)
 [![React 19](https://img.shields.io/badge/React_19-19.2-61DAFB?style=flat-square&logo=react&logoColor=black&labelColor=white)](https://react.dev)
 [![TypeScript 5](https://img.shields.io/badge/TypeScript_5-5.0-3178C6?style=flat-square&logo=typescript&logoColor=black&labelColor=white)](https://www.typescriptlang.org)

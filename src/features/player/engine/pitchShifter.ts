@@ -15,6 +15,8 @@
  * Perfectly tuned for the authentic "Slowed + Reverb" aesthetic.
  */
 
+import { isIOS } from "@/shared/platform";
+
 const GRAIN_PERIOD = 0.038; // 38ms grain window
 const NUM_TAPS = 4;
 
@@ -226,8 +228,17 @@ export class PitchShifterController {
   private graph: AudioEffectsGraph | null = null;
   private isConnected = false;
 
-  public attach(audio: HTMLAudioElement): void {
+  public isAttached(): boolean {
+    return this.isConnected;
+  }
+
+  // on ios the graph is only built once an effect is actually turned on
+  // (`force`): routing the <audio> element through an AudioContext is what
+  // WKWebView suspends in the background / under the lock screen, and it needs
+  // cors-readable media, which rules out streaming straight from the cdn.
+  public attach(audio: HTMLAudioElement, force = false): void {
     if (typeof window === "undefined") return;
+    if (!force && !this.isConnected && isIOS()) return;
     const win = window as any;
 
     try {
@@ -399,7 +410,9 @@ export class PitchShifterController {
   }
 
   public resumeContext(): void {
-    if (this.context && this.context.state === "suspended") {
+    // webkit reports "interrupted" (not "suspended") after a call or siri
+    const state = this.context?.state as string | undefined;
+    if (this.context && (state === "suspended" || state === "interrupted")) {
       void this.context.resume().catch(() => {});
     }
   }

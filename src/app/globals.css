@@ -217,6 +217,12 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* ios: no font inflation on rotation, no grey tap flash, no long-press
+     link/image callout sheet (the app has its own context menus) */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
 }
 
 /* insets for notches / gesture bars (viewport-fit=cover); env() is 0 on desktop */

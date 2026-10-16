@@ -16,6 +16,18 @@ export function isNativeApp(): boolean {
   return typeof window !== "undefined" && !isElectron() && Capacitor.isNativePlatform();
 }
 
+// true inside the ios capacitor shell (WKWebView)
+export function isIOS(): boolean {
+  return isNativeApp() && Capacitor.getPlatform() === "ios";
+}
+
+// codec to ask the server for. WKWebView's webm/opus support depends on the
+// ios version, while aac/mp4 is hardware-decoded everywhere, so ios asks for
+// aac. undefined keeps the server default (opus) on every other platform.
+export function preferredStreamCodec(): "aac" | undefined {
+  return isIOS() ? "aac" : undefined;
+}
+
 /**
  * Electron disables webSecurity and injects `access-control-allow-origin: *`
  * on every response, so `<audio crossorigin>`, WebGL cover textures and

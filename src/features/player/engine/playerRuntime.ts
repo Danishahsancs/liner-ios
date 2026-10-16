@@ -6,7 +6,7 @@ import { telemetry } from "@/shared/telemetry";
 import { linerDb } from "@/shared/storage";
 import type { Track } from "@/shared/types";
 import { pitchShifter } from "./pitchShifter";
-import { isNativeApp, nativeMediaUrl } from "@/shared/platform";
+import { isIOS, isNativeApp, nativeMediaUrl, preferredStreamCodec } from "@/shared/platform";
 
 interface ResolvedAudioStream {
   url: string;
@@ -66,9 +66,12 @@ async function resolveDirectInnertubeStream(plan: {
     throw new Error('No direct audio formats returned by Innertube');
   }
 
-  // Prefer Opus (audio/webm, itag 251) or highest bitrate audio/mp4
+  // Prefer Opus (audio/webm, itag 251) or highest bitrate audio/mp4.
+  // ios prefers audio/mp4 (aac, itag 140) and only falls back to webm.
+  const byBitrate = [...audioFormats].sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
   const opus = audioFormats.find((f: any) => f.mimeType.includes('webm') || f.mimeType.includes('opus'));
-  const best = opus || audioFormats.sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+  const mp4 = byBitrate.find((f: any) => f.mimeType.includes('mp4'));
+  const best = preferredStreamCodec() === 'aac' ? mp4 || byBitrate[0] : opus || byBitrate[0];
 
   const codec = best.mimeType.includes('opus') ? 'opus' : 'aac';
   const mimeType = best.mimeType.split(';')[0] || 'audio/webm';
@@ -352,6 +355,11 @@ export class PlayerRuntime {
         this.recoveryAttempts < 1
       ) {
         this.recoveryAttempts++;
+        if (isIOS() && /^https?:\/\//i.test(audioEl.src) && !this.iosDirectStreamFailed) {
+          // the cdn refused a direct (non-proxied) load; proxy from now on
+          this.iosDirectStreamFailed = true;
+          log("yellow", "playback", "direct ios stream failed — falling back to the native proxy");
+        }
         const posMs = store.positionMs;
         log("yellow", "playback", `audio error encountered — recovering via cache/stream at ${posMs}ms`);
         void this.loadAndPlay(currentTrack, posMs);
@@ -402,7 +410,15 @@ export class PlayerRuntime {
       const pitchSemitones = store.pitchSemitones ?? 0;
       const isReverbEnabled = store.isReverbEnabled ?? false;
       const reverbLevel = store.reverbLevel ?? 0.35;
-      pitchShifter.attach(this.audio);
+      if (isIOS() && !pitchShifter.isAttached()) {
+        const effectsWanted =
+          (!isPitchLinked && Math.abs(pitchSemitones) >= 0.05) ||
+          (isReverbEnabled && reverbLevel > 0.01);
+        // keep the plain <audio> path until pitch/reverb is actually used
+        if (!effectsWanted) return;
+        this.enableWebAudioOnIOS();
+      }
+      pitchShifter.attach(this.audio, true);
       pitchShifter.update({
         pitchSemitones,
         isPitchLinked,
@@ -412,6 +428,39 @@ export class PlayerRuntime {
     } catch (err) {
       console.error("[PlayerRuntime] applyPlaybackRateAndPitch error:", err);
     }
+  }
+
+  // ios streams remote audio straight from the cdn without cors (see
+  // setRemoteSource). web audio can't read samples from such a source, so the
+  // first time an effect is turned on, the current track is reloaded through
+  // the same-origin native proxy at its current position.
+  private enableWebAudioOnIOS(): void {
+    pitchShifter.attach(this.audio, true);
+    const src = this.audio.currentSrc || this.audio.src;
+    if (!/^https?:\/\//i.test(src)) return; // blob: cache hits and proxied urls are readable
+    const { currentTrack, positionMs } = usePlayerStore.getState();
+    if (!currentTrack || currentTrack.id !== this.currentTrackId) return;
+    log("cyan", "audio", "effects enabled on ios — reloading stream through the native proxy");
+    if (!this.audio.paused) {
+      void this.loadAndPlay(currentTrack, positionMs);
+    } else {
+      // resume() sees no loaded source and reloads at the stored position
+      this.safeResetAudioElement();
+    }
+  }
+
+  private iosDirectStreamFailed = false;
+
+  private setRemoteSource(url: string): void {
+    if (isIOS() && !pitchShifter.isAttached() && !this.iosDirectStreamFailed) {
+      // let avfoundation stream progressively: capacitor's ios proxy downloads
+      // each requested range in full before handing it to the webview
+      this.audio.removeAttribute("crossorigin");
+      this.audio.src = url;
+      return;
+    }
+    this.audio.crossOrigin = "anonymous";
+    this.audio.src = nativeMediaUrl(url);
   }
 
   private cancelFade(): void {
@@ -506,7 +555,7 @@ export class PlayerRuntime {
       try {
         const session = await api.createPlaybackSession(
           track.id,
-          undefined,
+          preferredStreamCodec(),
           controller.signal,
         );
         if (controller.signal.aborted) return;
@@ -693,7 +742,7 @@ export class PlayerRuntime {
 
       const session = await api.createPlaybackSession(
         track.id,
-        undefined,
+        preferredStreamCodec(),
         controller.signal,
       );
       this.ttfbMs = Math.round(performance.now() - this.loadStartTime);
@@ -734,7 +783,7 @@ export class PlayerRuntime {
         URL.revokeObjectURL(this.activeBlobUrl);
         this.activeBlobUrl = null;
       }
-      this.audio.src = nativeMediaUrl(url);
+      this.setRemoteSource(url);
       this.audio.volume = 0;
       this.audio.load();
       this.applyPlaybackRateAndPitch();

@@ -49,3 +49,6 @@ GEMINI.md
 .agent/
 
 brag-output/
+
+# ios ci packaging output
+/dist-ipa

@@ -24,7 +24,8 @@
     "electron:build:mac": "tsc -b && vite build && electron-builder --mac",
     "mobile:build": "tsc -b && vite build --mode capacitor",
     "android:sync": "pnpm mobile:build && cap sync android",
-    "android:debug": "pnpm android:sync && cd android && ./gradlew assembleDebug"
+    "android:debug": "pnpm android:sync && cd android && ./gradlew assembleDebug",
+    "ios:sync": "pnpm mobile:build && cap sync ios"
   },
   "build": {
     "appId": "com.hkamori.liner",
@@ -133,6 +134,7 @@
   "devDependencies": {
     "@capacitor/android": "8.5.3",
     "@capacitor/cli": "^8.5.3",
+    "@capacitor/ios": "8.5.3",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
