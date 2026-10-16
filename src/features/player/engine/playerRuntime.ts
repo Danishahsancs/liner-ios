@@ -66,10 +66,11 @@ async function resolveDirectInnertubeStream(plan: {
     throw new Error('No direct audio formats returned by Innertube');
   }
 
-  // Prefer Opus (audio/webm, itag 251) or highest bitrate audio/mp4.
-  // ios prefers audio/mp4 (aac, itag 140) and only falls back to webm.
+  // Prefer the highest-bitrate Opus (audio/webm, itag 251 over 249/250), else
+  // the highest-bitrate audio/mp4. ios flips that: highest-bitrate audio/mp4
+  // (aac, itag 140) first, webm only as a fallback.
   const byBitrate = [...audioFormats].sort((a: any, b: any) => (b.bitrate || 0) - (a.bitrate || 0));
-  const opus = audioFormats.find((f: any) => f.mimeType.includes('webm') || f.mimeType.includes('opus'));
+  const opus = byBitrate.find((f: any) => f.mimeType.includes('webm') || f.mimeType.includes('opus'));
   const mp4 = byBitrate.find((f: any) => f.mimeType.includes('mp4'));
   const best = preferredStreamCodec() === 'aac' ? mp4 || byBitrate[0] : opus || byBitrate[0];
 
