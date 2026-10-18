@@ -43,12 +43,11 @@ Files app in AltStore. SideStore can refresh the app on-device without a PC.
 | Notch / home indicator | `viewport-fit=cover`, `contentInset: "never"`; the layout pads with `env(safe-area-inset-*)` (same code as Android). Whole-page rubber-banding is off (`ios.scrollEnabled: false`). Font inflation on rotation, tap flash and the long-press callout are off. Inputs don't zoom on focus. |
 | Background audio | `UIBackgroundModes: audio` + an `AVAudioSession` `.playback` category (also ignores the silent switch). |
 | Lock screen / Control Center | `@capgo/capacitor-media-session` fills Now Playing (title, artist, artwork, position) and handles play/pause/next/previous/scrub. |
-| Streaming | iOS asks the server for **AAC** (`preferredCodec: "aac"`) and prefers mp4/AAC on the direct-YouTube path. WebM/Opus support in WKWebView depends on the iOS version. Audio streams **straight from the CDN** so AVFoundation can buffer progressively. Capacitor's iOS proxy downloads each request in full before handing it over. If a direct load fails, the app falls back to the proxy for the rest of the session. |
+| Streaming | Tracks resolve on the phone, as on desktop and Android: YouTube through innertube, SoundCloud through its API. iOS picks **AAC** (itag 140) from YouTube instead of Opus. SoundCloud already prefers MP3, then AAC. WebM/Opus support in WKWebView depends on the iOS version. The YouTube/Apple header rewrite that Electron does in its main process is applied by a native fetch shim, as on Android. Audio streams **straight from the CDN** so AVFoundation can buffer progressively. Capacitor's iOS proxy downloads each request in full before handing it over. If a direct load fails, the app falls back to the proxy for the rest of the session. |
 | Pitch / reverb effects | The Web Audio graph is only built once you turn an effect on. The current track then reloads through the same-origin proxy, because Web Audio can't read cross-origin samples. Until then, playback is a plain `<audio>` element, the most reliable path for background playback. |
 | Request signing (Rust → Wasm) | Same Wasm signer as Android, running in WKWebView. If WebAssembly is unavailable, a warning is logged and requests go out unsigned. |
 | WebGL background (Kawarp) | Plain WebGL 1 with `highp` shaders, which iOS supports. If context creation fails or the context is lost (e.g. backgrounding), the canvas hides, the CSS blur stays and the engine rebuilds on restore. |
 | Deep links | `liner://…` registered via `CFBundleURLTypes`, handled by the existing `DeeplinkHandler`. |
-| Fallback relay | ATS exception for plain-http `edge.tryliner.fun` only (mirrors Android's network security config). |
 | CarPlay | See below. |
 
 ## CarPlay
@@ -104,8 +103,8 @@ lists refresh when your library or account changes.
   integration conflicts with the plugin.
 - Anything on a real CarPlay screen. The CarPlay templates compile in CI but have never run; the first real test
   is Xcode's CarPlay simulator, or a car with an entitlement-signed build.
-- Whether the Liner server honours `preferredCodec: "aac"`. If it still returns WebM/Opus, playback depends on
-  the iOS version.
+- Whether YouTube's stream urls play in AVFoundation directly. They are resolved with an innertube client profile and
+  may expect that client's User-Agent. If a direct load fails, the app retries through the native proxy.
 - Direct CDN streaming without CORS, and seeking through the proxy (Range requests are forwarded, but each range is buffered whole).
 - The `x-platform` header reports `macos` on iOS, because the user agent contains "Mac OS X". The same
   user-agent sniffing reports Android as `linux`.

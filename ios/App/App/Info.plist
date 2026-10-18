@@ -38,20 +38,6 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<!-- the api's fallback relay (FALLBACK_EDGE_API) is plain http; everything else stays https-only -->
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>edge.tryliner.fun</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<false/>
-			</dict>
-		</dict>
-	</dict>
 	<key>UIBackgroundModes</key>
 	<array>
 		<!-- keep playing with the app in the background / screen locked -->

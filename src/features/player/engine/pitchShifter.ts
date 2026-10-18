@@ -15,8 +15,6 @@
  * Perfectly tuned for the authentic "Slowed + Reverb" aesthetic.
  */
 
-import { isIOS } from "@/shared/platform";
-
 const GRAIN_PERIOD = 0.038; // 38ms grain window
 const NUM_TAPS = 4;
 
@@ -228,17 +226,8 @@ export class PitchShifterController {
   private graph: AudioEffectsGraph | null = null;
   private isConnected = false;
 
-  public isAttached(): boolean {
-    return this.isConnected;
-  }
-
-  // on ios the graph is only built once an effect is actually turned on
-  // (`force`): routing the <audio> element through an AudioContext is what
-  // WKWebView suspends in the background / under the lock screen, and it needs
-  // cors-readable media, which rules out streaming straight from the cdn.
-  public attach(audio: HTMLAudioElement, force = false): void {
+  public attach(audio: HTMLAudioElement): void {
     if (typeof window === "undefined") return;
-    if (!force && !this.isConnected && isIOS()) return;
     const win = window as any;
 
     try {
@@ -409,6 +398,10 @@ export class PitchShifterController {
     }
   }
 
+  public isAttached(): boolean {
+    return this.isConnected;
+  }
+
   public resumeContext(): void {
     // webkit reports "interrupted" (not "suspended") after a call or siri
     const state = this.context?.state as string | undefined;
@@ -481,13 +474,6 @@ export class PitchShifterController {
 }
 
 export const pitchShifter = new PitchShifterController();
-if (typeof window !== "undefined") {
-  const win = window as any;
-  const audio = win.__liner_audio || (typeof document !== "undefined" && document.getElementById("liner-audio"));
-  if (audio) {
-    pitchShifter.attach(audio);
-  }
-}
 
 if (import.meta.hot) {
   import.meta.hot.accept();
